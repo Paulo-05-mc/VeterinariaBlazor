@@ -1,0 +1,184 @@
+﻿@page "/seguimientos"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Veterinaria.Models
+@inject VeterinariaDbContext DbContext
+
+<div class="mb-4">
+    <h3 class="text-info">
+        <i class="bi bi-eye-fill me-2"></i>Seguimiento Post-Adopción
+    </h3>
+    <p class="text-muted">Control de visitas obligatorias para mascotas adoptadas.</p>
+</div>
+
+@if (listaAdopciones == null)
+{
+    <p><em>Cargando...</em></p>
+}
+else if (!listaAdopciones.Any())
+{
+    <div class="alert alert-info">No hay adopciones activas para dar seguimiento.</div>
+}
+else
+{
+    <div class="row">
+        @foreach (var adopcion in listaAdopciones)
+        {
+            <div class="col-md-6 mb-4">
+                <div class="card shadow-sm h-100 border-0">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 text-primary">
+                            <i class="bi bi-house-heart-fill me-2"></i>
+                            @adopcion.IdMascotaNavigation?.Nombre
+                        </h5>
+                        <small class="text-muted">Adoptado: @adopcion.FechaAdopcion?.ToString("dd/MM/yyyy")</small>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-2">
+                            <strong>Adoptante:</strong> @adopcion.IdPostulanteNavigation?.NombreCompleto <br />
+                            <small class="text-muted"><i class="bi bi-geo-alt"></i> @adopcion.IdPostulanteNavigation?.Direccion</small>
+                        </p>
+
+                        <hr />
+
+                        <h6 class="text-secondary fw-bold">Visitas Realizadas:</h6>
+
+                        @if (adopcion.Seguimientos.Any())
+                        {
+                            <ul class="list-group list-group-flush mb-3">
+                                @foreach (var seg in adopcion.Seguimientos)
+                                {
+                                    <li class="list-group-item px-0 d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <span class="badge bg-info text-dark mb-1">@seg.TipoVisita</span>
+                                            <div class="small">@seg.Observaciones</div>
+                                        </div>
+                                        <div class="text-end" style="min-width: 80px;">
+                                            <small class="d-block text-muted">@seg.FechaVisita?.ToString("dd/MM")</small>
+                                            @if (seg.Estado == "Aprobado")
+                                            {
+                                                <i class="bi bi-check-circle-fill text-success" title="Aprobado"></i>
+                                            }
+                                            else
+                                            {
+                                                <i class="bi bi-exclamation-circle-fill text-danger" title="Observado"></i>
+                                            }
+                                        </div>
+                                    </li>
+                                }
+                            </ul>
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning py-2 mb-3">
+                                <small>No se han realizado visitas aún.</small>
+                            </div>
+                        }
+
+                        <button class="btn btn-outline-primary w-100" @onclick="() => AbrirModal(adopcion.IdAdopcion, adopcion.IdMascotaNavigation?.Nombre)">
+                            <i class="bi bi-calendar-check me-2"></i>Registrar Nueva Visita
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@if (mostrarModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">Nueva Visita a: @nombreMascotaSeleccionada</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="@nuevoSeguimiento" OnValidSubmit="GuardarSeguimiento">
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Responsable de la Visita</label>
+                            <InputSelect class="form-select" @bind-Value="nuevoSeguimiento.TipoVisita">
+                                <option value="Veterinario">Veterinario</option>
+                                <option value="Refugio">Personal del Refugio</option>
+                                <option value="Rescatistas">Grupo de Rescatistas</option>
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Fecha de Visita</label>
+                            <InputDate class="form-control" @bind-Value="nuevoSeguimiento.FechaVisita" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Estado / Resultado</label>
+                            <InputSelect class="form-select" @bind-Value="nuevoSeguimiento.Estado">
+                                <option value="Aprobado">✅ Aprobado (Todo en orden)</option>
+                                <option value="Observado">⚠️ Observado (Hay problemas)</option>
+                            </InputSelect>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Observaciones</label>
+                            <InputTextArea class="form-control" @bind-Value="nuevoSeguimiento.Observaciones" rows="3" placeholder="Ej: La mascota tiene buen peso, espacio limpio..." />
+                        </div>
+
+                        <div class="text-end border-top pt-3">
+                            <button type="button" class="btn btn-secondary me-2" @onclick="CerrarModal">Cancelar</button>
+                            <button type="submit" class="btn btn-info text-white fw-bold">
+                                <i class="bi bi-save me-1"></i> Guardar Informe
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Adopcion> listaAdopciones;
+    private Seguimiento nuevoSeguimiento = new();
+    private bool mostrarModal = false;
+    private string nombreMascotaSeleccionada = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        // Traemos adopciones + Mascota + Postulante + LISTA DE SEGUIMIENTOS ya hechos
+        listaAdopciones = await DbContext.Adopcions
+            .Include(a => a.IdMascotaNavigation)
+            .Include(a => a.IdPostulanteNavigation)
+            .Include(a => a.Seguimientos)
+            .OrderByDescending(a => a.FechaAdopcion)
+            .ToListAsync();
+    }
+
+    private void AbrirModal(int idAdopcion, string nombreMascota)
+    {
+        nuevoSeguimiento = new Seguimiento
+        {
+            IdAdopcion = idAdopcion,
+            FechaVisita = DateOnly.FromDateTime(DateTime.Now),
+            TipoVisita = "Veterinario", // Valor por defecto
+            Estado = "Aprobado"
+        };
+        nombreMascotaSeleccionada = nombreMascota;
+        mostrarModal = true;
+    }
+
+    private void CerrarModal() => mostrarModal = false;
+
+    private async Task GuardarSeguimiento()
+    {
+        DbContext.Seguimientos.Add(nuevoSeguimiento);
+        await DbContext.SaveChangesAsync();
+        await CargarDatos(); // Recargar para ver la nueva visita en la lista
+        CerrarModal();
+    }
+}

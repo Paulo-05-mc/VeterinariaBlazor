@@ -1,0 +1,121 @@
+﻿@page "/agregar-mascota"
+@page "/agregar-mascota/{Id:int}"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Veterinaria.Models
+@inject VeterinariaDbContext DbContext
+@inject NavigationManager Navigation
+
+<div class="container" style="max-width: 600px;">
+    <div class="card shadow">
+        <div class="card-header bg-success text-white">
+            <h3 class="mb-0">
+                @(Id.HasValue ? "Editar Mascota" : "Registrar Nueva Mascota")
+            </h3>
+        </div>
+        <div class="card-body">
+            <EditForm Model="@mascota" OnValidSubmit="Guardar" FormName="FormMascota">
+                <DataAnnotationsValidator />
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Nombre</label>
+                        <InputText class="form-control" @bind-Value="mascota.Nombre" required />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Especie (Perro, Gato...)</label>
+                        <InputText class="form-control" @bind-Value="mascota.Especie" required />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Raza</label>
+                        <InputText class="form-control" @bind-Value="mascota.Raza" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Color</label>
+                        <InputText class="form-control" @bind-Value="mascota.ColorPelaje" />
+                    </div>
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Sexo</label>
+                        <InputSelect class="form-select" @bind-Value="mascota.Sexo">
+                            <option value="">Seleccione...</option>
+                            <option value="Macho">Macho</option>
+                            <option value="Hembra">Hembra</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Peso Actual (kg)</label>
+                        <InputNumber class="form-control" @bind-Value="mascota.PesoActual" />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Fecha de Nacimiento</label>
+                    <InputDate class="form-control" @bind-Value="mascota.FechaNacimiento" />
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">ID del Cliente (Dueño)</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-person"></i></span>
+                        <InputNumber class="form-control" @bind-Value="mascota.IdCliente" placeholder="Ej: 1" />
+                    </div>
+                    <small class="text-muted">Deje en blanco o ponga 0 si es del Refugio.</small>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary" @onclick="Cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Guardar Datos</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int? Id { get; set; }
+
+    [SupplyParameterFromForm]
+    private Mascota mascota { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id.HasValue && mascota.IdMascota == 0)
+        {
+            var encontrada = await DbContext.Mascota.FindAsync(Id.Value);
+            if (encontrada != null)
+            {
+                mascota = encontrada;
+            }
+        }
+    }
+
+    private async Task Guardar()
+    {
+        // Si el ID de cliente es 0, lo ponemos null para que cuente como Refugio
+        if (mascota.IdCliente == 0) mascota.IdCliente = null;
+
+        if (Id.HasValue && Id.Value > 0)
+        {
+            DbContext.Mascota.Update(mascota);
+        }
+        else
+        {
+            DbContext.Mascota.Add(mascota);
+        }
+
+        await DbContext.SaveChangesAsync();
+        Navigation.NavigateTo("/mascotas");
+    }
+
+    private void Cancelar()
+    {
+        Navigation.NavigateTo("/mascotas");
+    }
+}

@@ -1,0 +1,142 @@
+﻿@page "/mascotas"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Veterinaria.Models
+@inject VeterinariaDbContext DbContext
+
+<div class="d-flex justify-content-between mb-4 align-items-center">
+    <h3 class="text-primary"><i class="bi bi-paw-fill me-2"></i>Lista de Mascotas</h3>
+    <a href="/agregar-mascota" class="btn btn-success shadow-sm">
+        <i class="bi bi-plus-circle me-1"></i> Nueva Mascota
+    </a>
+</div>
+
+@if (listaMascotas == null)
+{
+    <p><em>Cargando...</em></p>
+}
+else if (!listaMascotas.Any())
+{
+    <div class="alert alert-warning">No hay mascotas registradas.</div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Especie / Raza</th>
+                    <th>Sexo</th>
+                    <th>Peso</th>
+                    <th>Estado / Dueño</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var m in listaMascotas)
+                {
+                    <tr>
+                        <td class="fw-bold">@m.Nombre</td>
+                        <td>
+                            <div>@m.Especie</div>
+                            <small class="text-muted">@m.Raza</small>
+                        </td>
+                        <td>
+                            @if (m.Sexo == "Macho")
+                            {
+                                <span class="badge bg-info text-dark">Macho</span>
+                            }
+                            else if (m.Sexo == "Hembra")
+                            {
+
+                                <span class="badge bg-danger text-white">Hembra</span>
+                            }
+                            else
+                            {
+
+                                <span>-</span>
+                            }
+                        </td>
+                        <td>@(m.PesoActual?.ToString("0.00") ?? "0") kg</td>
+                        <td>
+                            @if (m.IdClienteNavigation != null)
+                            {
+                                <i class="bi bi-person-check-fill text-primary"></i> 
+                                @m.IdClienteNavigation.NombreFamilia
+                            }
+                            else if (idsMascotasAdoptadas.ContainsKey(m.IdMascota))
+                            {
+                                <span class="badge bg-success">
+                                    <i class="bi bi-house-heart-fill"></i> ¡Adoptado!
+                                </span>
+                                <small class="d-block text-muted">por: @idsMascotasAdoptadas[m.IdMascota]</small>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning text-dark">En Refugio</span>
+                            }
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="/agregar-mascota/@m.IdMascota" class="btn btn-sm btn-outline-primary" title="Editar">
+                                    <i class="bi bi-pencil-square"></i> Editar
+                                </a>
+                                <button class="btn btn-sm btn-outline-danger ms-1" title="Eliminar" @onclick="() => Eliminar(m.IdMascota)">
+                                    <i class="bi bi-trash-fill"></i> Eliminar
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<Mascota> listaMascotas;
+    // Diccionario para guardar ID_Mascota -> Nombre_Del_Adoptante
+    private Dictionary<int, string> idsMascotasAdoptadas = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        // 1. Cargar Mascotas
+        listaMascotas = await DbContext.Mascota
+            .Include(m => m.IdClienteNavigation)
+            .OrderBy(m => m.Nombre)
+            .ToListAsync();
+
+        // 2. Buscar cuáles están en la tabla ADOPCION y traer el nombre del postulante
+        var adopciones = await DbContext.Adopcions
+            .Include(a => a.IdPostulanteNavigation)
+            .ToListAsync();
+
+        // Llenar el diccionario
+        idsMascotasAdoptadas = new Dictionary<int, string>();
+        foreach (var a in adopciones)
+        {
+            // CORRECCIÓN: Verificamos .HasValue y usamos .Value
+            if (a.IdMascota.HasValue && !idsMascotasAdoptadas.ContainsKey(a.IdMascota.Value))
+            {
+                idsMascotasAdoptadas.Add(a.IdMascota.Value, a.IdPostulanteNavigation?.NombreCompleto ?? "Desconocido");
+            }
+        }
+    }
+
+    private async Task Eliminar(int id)
+    {
+        var mascota = await DbContext.Mascota.FindAsync(id);
+        if (mascota != null)
+        {
+            DbContext.Mascota.Remove(mascota);
+            await DbContext.SaveChangesAsync();
+            await CargarDatos();
+        }
+    }
+}

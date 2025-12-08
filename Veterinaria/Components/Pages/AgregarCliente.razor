@@ -1,0 +1,78 @@
+﻿@page "/agregar-cliente"
+@page "/agregar-cliente/{Id:int}"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Veterinaria.Models
+@inject VeterinariaDbContext DbContext
+@inject NavigationManager Navigation
+
+<div class="container" style="max-width: 600px;">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">
+                @(Id.HasValue ? "Editar Cliente" : "Registrar Nuevo Cliente")
+            </h3>
+        </div>
+        <div class="card-body">
+            <EditForm Model="@cliente" OnValidSubmit="Guardar" FormName="FormCliente">
+                <DataAnnotationsValidator />
+
+                <div class="mb-3">
+                    <label class="form-label">Nombre de Familia / Apellidos</label>
+                    <InputText class="form-control" @bind-Value="cliente.NombreFamilia" required />
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Teléfono</label>
+                        <InputText class="form-control" @bind-Value="cliente.Telefono" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Email</label>
+                        <InputText class="form-control" @bind-Value="cliente.Email" placeholder="ejemplo@correo.com" />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Dirección</label>
+                    <InputText class="form-control" @bind-Value="cliente.Direccion" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Cuenta Bancaria</label>
+                    <InputText class="form-control" @bind-Value="cliente.CuentaBanco" />
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-secondary" @onclick="Cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Datos</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [SupplyParameterFromForm] private Cliente cliente { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id.HasValue && cliente.IdCliente == 0)
+        {
+            var encontrado = await DbContext.Clientes.FindAsync(Id.Value);
+            if (encontrado != null) cliente = encontrado;
+        }
+    }
+
+    private async Task Guardar()
+    {
+        if (Id.HasValue && Id.Value > 0) DbContext.Clientes.Update(cliente);
+        else DbContext.Clientes.Add(cliente);
+
+        await DbContext.SaveChangesAsync();
+        Navigation.NavigateTo("/clientes");
+    }
+
+    private void Cancelar() => Navigation.NavigateTo("/clientes");
+}

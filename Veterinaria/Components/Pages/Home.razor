@@ -1,0 +1,247 @@
+﻿@page "/"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Veterinaria.Models
+@inject VeterinariaDbContext DbContext
+@inject NavigationManager Navigation
+
+<PageTitle>Inicio - Veterinaria & Refugio</PageTitle>
+
+<div class="text-center mb-5">
+    <h1 class="display-5 fw-bold text-dark">
+        <i class="bi bi-heart-pulse-fill text-danger me-2"></i>Sistema de Veterinaria y Refugio
+    </h1>
+    <p class="lead text-muted">"Narices Felices" - Cuidado Integral de Mascotas</p>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary h-100 shadow-sm">
+            <div class="card-body text-center">
+                <i class="bi bi-github fs-1 mb-2"></i>
+                <h5 class="card-title">Mascotas</h5>
+                <p class="display-4 fw-bold mb-0">@totalMascotas</p>
+                <small>Registradas en sistema</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success h-100 shadow-sm">
+            <div class="card-body text-center">
+                <i class="bi bi-people-fill fs-1 mb-2"></i>
+                <h5 class="card-title">Clientes</h5>
+                <p class="display-4 fw-bold mb-0">@totalClientes</p>
+                <small>Familias registradas</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning h-100 shadow-sm">
+            <div class="card-body text-center">
+                <i class="bi bi-house-heart-fill fs-1 mb-2"></i>
+                <h5 class="card-title">Adopciones</h5>
+                <p class="display-4 fw-bold mb-0">@totalAdopciones</p>
+                <small>Finalizadas con éxito</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-info h-100 shadow-sm">
+            <div class="card-body text-center">
+                <i class="bi bi-person-badge-fill fs-1 mb-2"></i>
+                <h5 class="card-title">Personal</h5>
+                <p class="display-4 fw-bold mb-0">@totalVeterinarios</p>
+                <small>Activos</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100 shadow-sm border-warning">
+            <div class="card-header bg-warning text-dark fw-bold">
+                <i class="bi bi-house-door-fill me-2"></i>Estado del Refugio
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h3 class="text-primary fw-bold">@totalEnRefugio</h3>
+                        <small class="text-muted">Esperando hogar</small>
+                    </div>
+                    <div class="col-6">
+                        <h3 class="text-success fw-bold">@postulantesPendientes</h3>
+                        <small class="text-muted">Postulantes pendientes</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100 shadow-sm border-success">
+            <div class="card-header bg-success text-white fw-bold">
+                <i class="bi bi-cash-coin me-2"></i>Donaciones y Aportes
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-12">
+                        <h3 class="text-success fw-bold">Bs. @totalRecaudado.ToString("N2")</h3>
+                        <small class="text-muted">Total histórico (Adopciones + Mecenas)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3 shadow-sm border-primary">
+    <div class="card-header bg-primary text-white fw-bold">
+        <i class="bi bi-clipboard2-pulse-fill me-2"></i>Atenciones Recientes
+    </div>
+    <div class="card-body p-0">
+        @if (listaAtenciones == null || !listaAtenciones.Any())
+        {
+            <div class="p-3 text-muted">No hay atenciones registradas recientemente.</div>
+        }
+        else
+        {
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Paciente</th>
+                        <th>Motivo</th>
+                        <th>Costo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in listaAtenciones)
+                    {
+                        <tr>
+                            <td>@a.FechaAtencion?.ToString("dd/MM HH:mm")</td>
+                            <td class="fw-bold">
+                                @(a.IdMascotaNavigation?.Nombre ?? "-")
+                                <small class="text-muted">(@(a.IdMascotaNavigation?.Especie ?? ""))</small>
+                            </td>
+                            <td>@a.DescripcionMotivo</td>
+                            <td>Bs. @a.Costo</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+<div class="card mb-5 shadow-sm border-info">
+    <div class="card-header bg-info text-white fw-bold">
+        <i class="bi bi-eye-fill me-2"></i>Seguimientos Pendientes (Adopciones sin completar visitas)
+    </div>
+    <div class="card-body p-0">
+        @if (adopcionesConSeguimientoPendiente == null || !adopcionesConSeguimientoPendiente.Any())
+        {
+            <div class="p-3 text-success">
+                <i class="bi bi-check-circle-fill me-2"></i>¡Excelente! Todas las adopciones tienen sus visitas al día o completas.
+            </div>
+        }
+        else
+        {
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha Adopción</th>
+                        <th>Mascota</th>
+                        <th>Adoptante</th>
+                        <th>Progreso Visitas</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var a in adopcionesConSeguimientoPendiente)
+                    {
+                        <tr>
+                            <td>@a.FechaAdopcion?.ToString("dd/MM/yyyy")</td>
+                            <td class="fw-bold">@a.IdMascotaNavigation?.Nombre</td>
+                            <td>@a.IdPostulanteNavigation?.NombreCompleto</td>
+                            <td>
+                                @{
+                                    int count = a.Seguimientos.Count;
+                                    string color = count == 0 ? "bg-danger" : (count < 3 ? "bg-warning" : "bg-success");
+                                    int porcentaje = (count * 100) / 3;
+                                    if (porcentaje > 100) porcentaje = 100;
+                                }
+                                <div class="d-flex align-items-center">
+                                    <span class="me-2 badge rounded-pill bg-light text-dark border">@count / 3</span>
+                                    <div class="progress flex-grow-1" style="height: 6px;">
+                                        <div class="progress-bar @color" role="progressbar" style="width: @porcentaje%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-info" @onclick='() => Navigation.NavigateTo("/seguimientos")'>
+                                    <i class="bi bi-arrow-right-circle"></i> Ir
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+
+@code {
+    private int totalMascotas = 0;
+    private int totalEnRefugio = 0;
+    private int totalClientes = 0;
+    private int totalVeterinarios = 0;
+    private int totalAdopciones = 0;
+    private int postulantesPendientes = 0;
+    private decimal totalRecaudado = 0;
+
+    private List<Atencion> listaAtenciones;
+    private List<Adopcion> adopcionesConSeguimientoPendiente; // Lista nueva
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // --- BLOQUE DE CONTADORES (Igual que antes) ---
+            var idsMascotasAdoptadas = await DbContext.Adopcions.Select(a => a.IdMascota).ToListAsync();
+            var idsPersonasQueAdoptaron = await DbContext.Adopcions.Select(a => a.IdPostulante).ToListAsync();
+
+            totalMascotas = await DbContext.Mascota.CountAsync();
+            totalClientes = await DbContext.Clientes.CountAsync();
+            totalVeterinarios = await DbContext.Veterinarios.CountAsync();
+            totalAdopciones = idsMascotasAdoptadas.Count;
+
+            totalEnRefugio = await DbContext.Mascota
+                .CountAsync(m => m.IdCliente == null && !idsMascotasAdoptadas.Contains(m.IdMascota));
+
+            postulantesPendientes = await DbContext.Postulantes
+                .CountAsync(p => !idsPersonasQueAdoptaron.Contains(p.IdPostulante));
+
+            var sumaAdopciones = await DbContext.Adopcions.SumAsync(a => a.MontoCompromiso ?? 0);
+            var sumaMecenas = await DbContext.Aportes.SumAsync(a => a.MontoDonado ?? 0);
+            totalRecaudado = sumaAdopciones + sumaMecenas;
+
+            // --- LISTAS ---
+
+            listaAtenciones = await DbContext.Atencions
+                .Include(a => a.IdMascotaNavigation)
+                .OrderByDescending(a => a.FechaAtencion)
+                .Take(5)
+                .ToListAsync();
+
+            // NUEVA LÓGICA: Adopciones que tienen menos de 3 visitas registradas
+            adopcionesConSeguimientoPendiente = await DbContext.Adopcions
+                .Include(a => a.IdMascotaNavigation)
+                .Include(a => a.IdPostulanteNavigation)
+                .Include(a => a.Seguimientos) // Importante: incluir los seguimientos para contarlos
+                .Where(a => a.Seguimientos.Count < 3) // FILTRO: Menos de 3 visitas
+                .OrderByDescending(a => a.FechaAdopcion)
+                .ToListAsync();
+        }
+        catch (Exception) { }
+    }
+}

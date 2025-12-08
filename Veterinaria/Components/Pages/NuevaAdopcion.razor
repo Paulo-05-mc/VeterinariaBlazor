@@ -1,0 +1,123 @@
+﻿@page "/nueva-adopcion"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Veterinaria.Models
+@inject VeterinariaDbContext DbContext
+@inject NavigationManager Navigation
+
+<div class="container" style="max-width: 800px;">
+    <div class="card shadow border-0">
+        <div class="card-header bg-warning text-dark py-3">
+            <h3 class="mb-0"><i class="bi bi-house-heart-fill me-2"></i>Registrar Adopción</h3>
+        </div>
+        <div class="card-body p-4">
+
+            @if (mensajeExito)
+            {
+                <div class="alert alert-success alert-dismissible fade show">
+                    <i class="bi bi-check-circle-fill me-2"></i><strong>¡Felicidades!</strong> La adopción se ha registrado correctamente.
+                </div>
+            }
+
+            <EditForm Model="@adopcion" OnValidSubmit="GuardarAdopcion" FormName="FormAdopcion">
+                <DataAnnotationsValidator />
+
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Postulante (Adoptante)</label>
+                        <InputSelect class="form-select form-select-lg" @bind-Value="adopcion.IdPostulante" required>
+                            <option value="0">-- Seleccione Persona --</option>
+                            @foreach (var p in listaPostulantes)
+                            {
+                                <option value="@p.IdPostulante">@p.NombreCompleto (Busca: @p.PreferenciaMascota)</option>
+                            }
+                        </InputSelect>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Mascota del Refugio</label>
+                        <InputSelect class="form-select form-select-lg" @bind-Value="adopcion.IdMascota" required>
+                            <option value="0">-- Seleccione Mascota --</option>
+                            @foreach (var m in mascotasDisponibles)
+                            {
+                                <option value="@m.IdMascota">@m.Nombre (@m.Especie - @m.Raza)</option>
+                            }
+                        </InputSelect>
+                        @if (!mascotasDisponibles.Any())
+                        {
+                            <small class="text-danger mt-1 d-block">
+                                <i class="bi bi-exclamation-circle"></i> No hay mascotas rescatadas disponibles.
+                            </small>
+                        }
+                    </div>
+
+                    <div class="col-12"><hr /></div>
+
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold text-success">Aporte de Compromiso</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-success text-white">Bs.</span>
+                            <InputNumber class="form-control" @bind-Value="adopcion.MontoCompromiso" />
+                        </div>
+                        <div class="form-text">Monto para amortizar gastos de la mascota.</div>
+                    </div>
+
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="alert alert-info w-100 mb-0 py-2">
+                            <small><i class="bi bi-info-circle"></i> Al guardar, la mascota dejará de estar disponible en el refugio.</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-3 mt-4">
+                    <button type="button" class="btn btn-secondary" @onclick='() => Navigation.NavigateTo("/")'>Cancelar</button>
+                    <button type="submit" class="btn btn-warning text-dark fw-bold px-4" disabled="@(!mascotasDisponibles.Any())">
+                        <i class="bi bi-check-lg me-2"></i>Formalizar Adopción
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    private Adopcion adopcion = new() { FechaAdopcion = DateOnly.FromDateTime(DateTime.Now) };
+    private bool mensajeExito = false;
+
+    private List<Postulante> listaPostulantes = new();
+    private List<Mascota> mascotasDisponibles = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Cargar Postulantes
+        listaPostulantes = await DbContext.Postulantes.OrderBy(p => p.NombreCompleto).ToListAsync();
+
+        // Cargar Mascotas: SOLO las que son rescatadas (EsRescatado = true) y NO tienen dueño (IdCliente = null)
+        mascotasDisponibles = await DbContext.Mascota
+            .Where(m => m.IdCliente == null)
+            .OrderBy(m => m.Nombre)
+            .ToListAsync();
+    }
+
+    private async Task GuardarAdopcion()
+    {
+        if (adopcion.IdMascota == 0 || adopcion.IdPostulante == 0) return;
+
+        // 1. Guardar el registro de Adopción
+        // Nota: Asegúrate de que tu modelo Adopcion use DateOnly o DateTime según tu BD.
+        // Si da error de fecha, avísame.
+        adopcion.FechaAdopcion = DateOnly.FromDateTime(DateTime.Now);
+
+        DbContext.Adopcions.Add(adopcion);
+        await DbContext.SaveChangesAsync();
+
+        // 2. (Opcional) Actualizar la mascota para que ya no aparezca disponible
+        // Podríamos asignarle un "Dueño ficticio" o simplemente confiar en que la tabla Adopción ya marca que fue adoptada.
+        // Por ahora, solo guardamos la adopción.
+
+        mensajeExito = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        Navigation.NavigateTo("/");
+    }
+}

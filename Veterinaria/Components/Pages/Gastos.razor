@@ -1,0 +1,203 @@
+﻿@page "/gastos"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Veterinaria.Models
+@inject VeterinariaDbContext DbContext
+
+<div class="d-flex justify-content-between mb-4 align-items-center">
+    <h3 class="text-danger">
+        <i class="bi bi-basket-fill me-2"></i>Gastos del Refugio
+    </h3>
+    <button class="btn btn-danger shadow-sm" @onclick="AbrirModal">
+        <i class="bi bi-plus-circle me-1"></i> Registrar Nuevo Gasto
+    </button>
+</div>
+
+@if (listaGastos == null)
+{
+    <p><em>Cargando...</em></p>
+}
+else if (!listaGastos.Any())
+{
+    <div class="alert alert-success shadow-sm">
+        <i class="bi bi-check-circle-fill me-2"></i> No hay gastos registrados. ¡El refugio está al día!
+    </div>
+}
+else
+{
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-danger text-white">
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Mascota Beneficiada</th>
+                        <th>Descripción del Gasto</th>
+                        <th>Costo</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var g in listaGastos)
+                    {
+                        <tr>
+                            <td>@g.FechaCg?.ToString("dd/MM/yyyy")</td>
+                            <td class="fw-bold">
+                                <i class="bi bi-paw-fill text-muted me-1"></i>
+                                @(g.IdEstadiaNavigation?.IdMascotaNavigation?.Nombre ?? "Desconocido")
+                            </td>
+                            <td>@g.DescripcionGasto</td>
+                            <td class="text-danger fw-bold">Bs. @(g.CostoCuidado?.ToString("N2"))</td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-outline-danger" title="Eliminar" @onclick="() => Eliminar(g.IdGasto)">
+                                    <i class="bi bi-trash-fill"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (mostrarModal)
+{
+    <div class="modal fade show d-block" style="background: rgba(0,0,0,0.5)">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Registrar Gasto / Cuidado</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="@nuevoGasto" OnValidSubmit="GuardarGasto">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Mascota (Solo Refugio)</label>
+                            <InputSelect class="form-select" @bind-Value="idMascotaSeleccionada" required>
+                                <option value="0">-- Seleccione --</option>
+                                @foreach (var m in mascotasEnRefugio)
+                                {
+                                    <option value="@m.IdMascota">@m.Nombre (@m.Especie)</option>
+                                }
+                            </InputSelect>
+                            <small class="text-muted">Solo aparecen mascotas sin dueño.</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Descripción</label>
+                            <InputText class="form-control" @bind-Value="nuevoGasto.DescripcionGasto" placeholder="Ej: Bolsa de comida, Vacuna quíntuple..." required />
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold text-success">Costo (Bs)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">Bs.</span>
+                                <InputNumber class="form-control" @bind-Value="nuevoGasto.CostoCuidado" />
+                            </div>
+                        </div>
+
+                        <div class="text-end border-top pt-3">
+                            <button type="button" class="btn btn-secondary me-2" @onclick="CerrarModal">Cancelar</button>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-save me-1"></i> Guardar Gasto
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<CuidadoGasto> listaGastos;
+    private List<Mascota> mascotasEnRefugio;
+    private CuidadoGasto nuevoGasto = new();
+
+    private bool mostrarModal = false;
+    private int idMascotaSeleccionada = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        // 1. Cargar Gastos (Igual que antes)
+        listaGastos = await DbContext.CuidadoGastos
+            .Include(g => g.IdEstadiaNavigation)
+            .ThenInclude(e => e.IdMascotaNavigation)
+            .OrderByDescending(g => g.FechaCg)
+            .ToListAsync();
+
+        // --- CAMBIO AQUÍ ---
+        // 2. Obtener IDs de mascotas YA ADOPTADAS
+        var idsAdoptadas = await DbContext.Adopcions
+            .Where(a => a.IdMascota != null)
+            .Select(a => a.IdMascota.Value)
+            .ToListAsync();
+
+        // 3. Cargar Mascotas para el dropdown
+        // Condición: Que NO tenga dueño (IdCliente null) Y que NO esté en la lista de adoptadas
+        mascotasEnRefugio = await DbContext.Mascota
+            .Where(m => m.IdCliente == null && !idsAdoptadas.Contains(m.IdMascota))
+            .OrderBy(m => m.Nombre)
+            .ToListAsync();
+    }
+
+    private void AbrirModal()
+    {
+        nuevoGasto = new CuidadoGasto { FechaCg = DateTime.Now, CostoCuidado = 0 };
+        idMascotaSeleccionada = 0;
+        mostrarModal = true;
+    }
+
+    private void CerrarModal() => mostrarModal = false;
+
+    private async Task GuardarGasto()
+    {
+        if (idMascotaSeleccionada == 0) return;
+
+        // LÓGICA IMPORTANTE:
+        // La BD pide 'IdEstadia', no 'IdMascota'.
+        // Buscamos si la mascota ya tiene una "Estadia" abierta. Si no, la creamos automática.
+
+        var estadia = await DbContext.Estadia
+            .FirstOrDefaultAsync(e => e.IdMascota == idMascotaSeleccionada);
+
+        if (estadia == null)
+        {
+            estadia = new Estadium
+            {
+                IdMascota = idMascotaSeleccionada,
+                FechaIngreso = DateTime.Now,
+                CostoDiario = 0 // Valor por defecto
+            };
+            DbContext.Estadia.Add(estadia);
+            await DbContext.SaveChangesAsync(); // Guardar para obtener el ID
+        }
+
+        // Ahora sí guardamos el gasto vinculado a esa estadía
+        nuevoGasto.IdEstadia = estadia.IdEstadia;
+        DbContext.CuidadoGastos.Add(nuevoGasto);
+        await DbContext.SaveChangesAsync();
+
+        await CargarDatos(); // Recargar lista
+        CerrarModal(); // Cerrar ventana
+    }
+
+    private async Task Eliminar(int id)
+    {
+        var item = await DbContext.CuidadoGastos.FindAsync(id);
+        if (item != null)
+        {
+            DbContext.CuidadoGastos.Remove(item);
+            await DbContext.SaveChangesAsync();
+            await CargarDatos();
+        }
+    }
+}

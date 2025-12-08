@@ -1,0 +1,87 @@
+﻿<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">
+            <i class="bi bi-hospital-fill me-2 text-danger"></i>
+            Narices Felices
+        </a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <i class="bi bi-house-door-fill" aria-hidden="true"></i> Home
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="mascotas">
+                <i class="bi bi-github" aria-hidden="true"></i> Mascotas
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="clientes">
+                <i class="bi bi-people-fill" aria-hidden="true"></i> Clientes
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="nueva-atencion">
+                <i class="bi bi-bandaid-fill" aria-hidden="true"></i> Consulta Vet
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="postulantes">
+                <i class="bi bi-clipboard-heart-fill" aria-hidden="true"></i> Postulantes
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="nueva-adopcion">
+                <i class="bi bi-house-heart-fill" aria-hidden="true"></i> Adopciones
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="historial-adopciones">
+                <i class="bi bi-journal-bookmark-fill" aria-hidden="true"></i> Historial
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="donantes">
+                <i class="bi bi-piggy-bank-fill" aria-hidden="true"></i> Mecenas
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="gastos">
+                <i class="bi bi-basket-fill" aria-hidden="true"></i> Gastos Refugio
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="seguimientos">
+                <i class="bi bi-eye-fill" aria-hidden="true"></i> Seguimiento
+            </NavLink>
+        </div>
+
+    </nav>
+</div>
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+}

@@ -1,0 +1,289 @@
+﻿@page "/adopciones"
+@using Microsoft.EntityFrameworkCore
+@using Veterinaria.Models
+@inject VeterinariaDbContext DbContext
+@inject NavigationManager Navigation
+
+<h3>🏠 Gestión de Adopciones</h3>
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="MostrarFormulario">
+        <span class="bi bi-plus-circle"></span> Registrar Adopción
+    </button>
+    <a href="/reporte-gastos" class="btn btn-info">
+        <span class="bi bi-wallet2"></span> Ver Cuentas de Gastos
+    </a>
+</div>
+
+@if (mostrarForm)
+{
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <h5>@(adopcionEditando != null ? "Editar Adopción" : "Nueva Adopción")</h5>
+        </div>
+        <div class="card-body">
+            <EditForm Model="@adopcionActual" OnValidSubmit="GuardarAdopcion">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Código de Adopción:</label>
+                        <InputText class="form-control" @bind-Value="adopcionActual.CodAdopcion" placeholder="ADOP001" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Fecha de Adopción:</label>
+                        <InputDate class="form-control" @bind-Value="adopcionActual.FechaAdopcion" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Monto de Compromiso (Bs):</label>
+                        <InputNumber class="form-control" @bind-Value="adopcionActual.MontoCompromiso" step="0.01" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Mascota a Adoptar:</label>
+                        <InputSelect class="form-select" @bind-Value="adopcionActual.IdMascota"
+                                     @onchange="MascotaSeleccionada">
+                            <option value="">Seleccione una mascota...</option>
+                            @foreach (var mascota in mascotasDisponibles)
+                            {
+                                <option value="@mascota.IdMascota">
+                                    @mascota.Nombre - @mascota.Especie (@mascota.Raza)
+                                </option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Adoptante (Postulante):</label>
+                        <InputSelect class="form-select" @bind-Value="adopcionActual.IdPostulante">
+                            <option value="">Seleccione un postulante...</option>
+                            @foreach (var postulante in listaPostulantes)
+                            {
+                                <option value="@postulante.IdPostulante">
+                                    @postulante.NombreCompleto
+                                </option>
+                            }
+                        </InputSelect>
+                    </div>
+                </div>
+
+                @if (adopcionActual.IdMascota.HasValue && gastosMascota != null)
+                {
+                    <div class="alert alert-info">
+                        <h6>💰 Resumen de Gastos de la Mascota</h6>
+                        <p><strong>Total Atenciones Veterinarias:</strong> Bs. @gastosMascota.TotalAtenciones.ToString("N2")</p>
+                        <p><strong>Total Estadía y Cuidados:</strong> Bs. @gastosMascota.TotalEstadia.ToString("N2")</p>
+                        <hr />
+                        <p class="mb-0">
+                            <strong>TOTAL A AMORTIZAR:</strong>
+                            <span class="text-primary fs-5">Bs. @gastosMascota.TotalGeneral.ToString("N2")</span>
+                        </p>
+                    </div>
+                }
+
+                <div>
+                    <button type="submit" class="btn btn-success">
+                        <span class="bi bi-save"></span> Registrar Adopción
+                    </button>
+                    <button type="button" class="btn btn-secondary" @onclick="CancelarFormulario">
+                        <span class="bi bi-x-circle"></span> Cancelar
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@if (listaAdopciones == null)
+{
+    <p><em>Cargando adopciones...</em></p>
+}
+else if (!listaAdopciones.Any())
+{
+    <div class="alert alert-info">
+        <span class="bi bi-info-circle"></span> No hay adopciones registradas.
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Código</th>
+                    <th>Fecha</th>
+                    <th>Mascota</th>
+                    <th>Adoptante</th>
+                    <th>Monto Compromiso</th>
+                    <th>Seguimientos</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var adopcion in listaAdopciones)
+                {
+                    <tr>
+                        <td><strong>@adopcion.CodAdopcion</strong></td>
+                        <td>@adopcion.FechaAdopcion?.ToString("dd/MM/yyyy")</td>
+                        <td>
+                            <span class="bi bi-paw"></span>
+                            @adopcion.IdMascotaNavigation?.Nombre
+                        </td>
+                        <td>@adopcion.IdPostulanteNavigation?.NombreCompleto</td>
+                        <td>Bs. @adopcion.MontoCompromiso?.ToString("N2")</td>
+                        <td>
+                            <span class="badge bg-info">
+                                @adopcion.Seguimientos.Count seguimiento(s)
+                            </span>
+                        </td>
+                        <td>
+                            <a href="/seguimientos?adopcionId=@adopcion.IdAdopcion"
+                               class="btn btn-sm btn-info">
+                                <span class="bi bi-clipboard-check"></span> Ver Seguimientos
+                            </a>
+                            <button class="btn btn-sm btn-danger"
+                                    @onclick="() => EliminarAdopcion(adopcion.IdAdopcion)">
+                                <span class="bi bi-trash"></span>
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<Adopcion> listaAdopciones;
+    private List<Mascota> mascotasDisponibles;
+    private List<Postulante> listaPostulantes;
+    private Adopcion adopcionActual = new();
+    private Adopcion adopcionEditando;
+    private bool mostrarForm = false;
+    private GastosMascotaDto gastosMascota;
+
+    public class GastosMascotaDto
+    {
+        public decimal TotalAtenciones { get; set; }
+        public decimal TotalEstadia { get; set; }
+        public decimal TotalGeneral => TotalAtenciones + TotalEstadia;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+
+    private async Task CargarDatos()
+    {
+        listaAdopciones = await DbContext.Adopcions
+            .Include(a => a.IdMascotaNavigation)
+            .Include(a => a.IdPostulanteNavigation)
+            .Include(a => a.Seguimientos)
+            .OrderByDescending(a => a.FechaAdopcion)
+            .ToListAsync();
+
+        // Mascotas rescatadas que NO han sido adoptadas
+        var idsAdoptados = await DbContext.Adopcions.Select(a => a.IdMascota).ToListAsync();
+        mascotasDisponibles = await DbContext.Mascota
+            .Where(m => m.EsRescatado == true && !idsAdoptados.Contains(m.IdMascota))
+            .ToListAsync();
+
+        listaPostulantes = await DbContext.Postulantes.ToListAsync();
+    }
+
+    private void MostrarFormulario()
+    {
+        adopcionActual = new Adopcion
+        {
+            FechaAdopcion = DateOnly.FromDateTime(DateTime.Now)
+        };
+        adopcionEditando = null;
+        gastosMascota = null;
+        mostrarForm = true;
+    }
+
+    private async Task MascotaSeleccionada(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int idMascota))
+        {
+            await CalcularGastosMascota(idMascota);
+        }
+    }
+
+    private async Task CalcularGastosMascota(int idMascota)
+    {
+        // Calcular total de atenciones
+        var totalAtenciones = await DbContext.Atencions
+            .Where(a => a.IdMascota == idMascota)
+            .SumAsync(a => a.Costo ?? 0);
+
+        // Calcular total de estadía y cuidados
+        var estadias = await DbContext.Estadia
+            .Include(e => e.CuidadoGastos)
+            .Where(e => e.IdMascota == idMascota)
+            .ToListAsync();
+
+        decimal totalEstadia = 0;
+        foreach (var estadia in estadias)
+        {
+            // Calcular días de estadía
+            var dias = 0;
+            if (estadia.FechaSalida.HasValue && estadia.FechaIngreso.HasValue)
+            {
+                dias = (estadia.FechaSalida.Value - estadia.FechaIngreso.Value).Days;
+            }
+
+            totalEstadia += (estadia.CostoDiario ?? 0) * dias;
+            totalEstadia += estadia.CuidadoGastos.Sum(c => c.CostoCuidado ?? 0);
+        }
+
+        gastosMascota = new GastosMascotaDto
+        {
+            TotalAtenciones = totalAtenciones,
+            TotalEstadia = totalEstadia
+        };
+    }
+
+    private void CancelarFormulario()
+    {
+        mostrarForm = false;
+        adopcionActual = new();
+        adopcionEditando = null;
+        gastosMascota = null;
+    }
+
+    private async Task GuardarAdopcion()
+    {
+        DbContext.Adopcions.Add(adopcionActual);
+        await DbContext.SaveChangesAsync();
+
+        // Crear los 3 seguimientos automáticamente
+        var tiposVisita = new[] { "Veterinario", "Refugio", "Rescatistas" };
+        foreach (var tipo in tiposVisita)
+        {
+            var seguimiento = new Seguimiento
+            {
+                IdAdopcion = adopcionActual.IdAdopcion,
+                TipoVisita = tipo,
+                Estado = "Pendiente",
+                FechaVisita = DateOnly.FromDateTime(DateTime.Now.AddDays(30)) // 30 días después
+            };
+            DbContext.Seguimientos.Add(seguimiento);
+        }
+
+        await DbContext.SaveChangesAsync();
+        await CargarDatos();
+        CancelarFormulario();
+    }
+
+    private async Task EliminarAdopcion(int id)
+    {
+        var adopcion = await DbContext.Adopcions.FindAsync(id);
+        if (adopcion != null)
+        {
+            DbContext.Adopcions.Remove(adopcion);
+            await DbContext.SaveChangesAsync();
+            await CargarDatos();
+        }
+    }
+}

@@ -1,0 +1,161 @@
+﻿@page "/donantes"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Veterinaria.Models
+@inject VeterinariaDbContext DbContext
+
+<div class="d-flex justify-content-between mb-4 align-items-center">
+    <h3 class="text-success">
+        <i class="bi bi-piggy-bank-fill me-2"></i>Mecenas
+    </h3>
+    <a href="/agregar-donante" class="btn btn-success shadow-sm">
+        <i class="bi bi-person-plus-fill me-1"></i> Nuevo(a) Donante
+    </a>
+</div>
+
+@if (lista == null)
+{
+    <p><em>Cargando...</em></p>
+}
+else if (!lista.Any())
+{
+    <div class="alert alert-info shadow-sm">
+        <i class="bi bi-info-circle-fill me-2"></i>No hay mecenas registrados.
+    </div>
+}
+else
+{
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <table class="table table-striped table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nombre del Donante</th>
+                        <th>Compromiso Mensual</th>
+                        <th>Total Aportado Histórico</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in lista)
+                    {
+                        <tr>
+                            <td class="fw-bold">
+                                <i class="bi bi-star-fill text-warning me-2"></i>@d.NombreCompleto
+                            </td>
+                            <td>Bs. @(d.CompromisoMontoMensual?.ToString("N2") ?? "0.00")</td>
+                            <td class="text-success fw-bold">
+                                Bs. @(d.Aportes.Sum(a => a.MontoDonado)?.ToString("N2") ?? "0.00")
+                            </td>
+                            <td class="text-end">
+                                <div class="btn-group">
+                                    <button class="btn btn-sm btn-outline-success" title="Registrar Aporte" @onclick="() => AbrirModalAporte(d.IdDonante, d.NombreCompleto)">
+                                        <i class="bi bi-cash-coin"></i> Aporte
+                                    </button>
+
+                                    <a href="/agregar-donante/@d.IdDonante" class="btn btn-sm btn-outline-primary ms-1">
+                                        <i class="bi bi-pencil-square"></i> Editar
+                                    </a>
+                                    <button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => Eliminar(d.IdDonante)">
+                                        <i class="bi bi-trash-fill"></i> Eliminar
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (mostrarModal)
+{
+    <div class="modal fade show d-block" style="background-color: rgba(0,0,0,0.5);" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">Registrar Aporte de: @nombreDonanteSeleccionado</h5>
+                    <button type="button" class="btn-close" @onclick="CerrarModal"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="@nuevoAporte" OnValidSubmit="GuardarAporte">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Monto del Aporte (Bs)</label>
+                            <InputNumber class="form-control" @bind-Value="nuevoAporte.MontoDonado" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Fecha</label>
+                            <InputDate class="form-control" @bind-Value="nuevoAporte.FechaAporte" />
+                        </div>
+                        <div class="text-end">
+                            <button type="button" class="btn btn-secondary" @onclick="CerrarModal">Cancelar</button>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-save"></i> Registrar Pago
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Donante> lista;
+
+    // Variables para el Modal
+    private bool mostrarModal = false;
+    private Aporte nuevoAporte = new();
+    private string nombreDonanteSeleccionado = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarLista();
+    }
+
+    private async Task CargarLista()
+    {
+        lista = await DbContext.Donantes
+            .Include(d => d.Aportes) // Importante: Traer los aportes para sumar
+            .OrderBy(d => d.NombreCompleto)
+            .ToListAsync();
+    }
+
+    private void AbrirModalAporte(int idDonante, string nombre)
+    {
+        // Preparamos el formulario vacío
+        nuevoAporte = new Aporte
+        {
+            IdDonante = idDonante,
+            MontoDonado = 0,
+            FechaAporte = DateOnly.FromDateTime(DateTime.Now)
+        };
+        nombreDonanteSeleccionado = nombre;
+        mostrarModal = true;
+    }
+
+    private void CerrarModal() => mostrarModal = false;
+
+    private async Task GuardarAporte()
+    {
+        if (nuevoAporte.MontoDonado > 0)
+        {
+            DbContext.Aportes.Add(nuevoAporte);
+            await DbContext.SaveChangesAsync();
+            await CargarLista(); // Recargar la lista para ver el nuevo total
+            CerrarModal();
+        }
+    }
+
+    private async Task Eliminar(int id)
+    {
+        var item = await DbContext.Donantes.FindAsync(id);
+        if (item != null)
+        {
+            DbContext.Donantes.Remove(item);
+            await DbContext.SaveChangesAsync();
+            await CargarLista();
+        }
+    }
+}

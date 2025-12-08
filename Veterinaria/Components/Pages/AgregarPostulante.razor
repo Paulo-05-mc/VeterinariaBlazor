@@ -1,0 +1,94 @@
+﻿@page "/agregar-postulante"
+@page "/agregar-postulante/{Id:int}"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Veterinaria.Models
+@inject VeterinariaDbContext DbContext
+@inject NavigationManager Navigation
+
+<div class="container" style="max-width: 700px;">
+    <div class="card shadow border-0">
+        <div class="card-header bg-warning text-dark py-3">
+            <h3 class="mb-0">
+                <i class="bi bi-person-lines-fill me-2"></i>
+                @(Id.HasValue ? "Editar Postulante" : "Registrar Interesado")
+            </h3>
+        </div>
+        <div class="card-body p-4">
+            <EditForm Model="@postulante" OnValidSubmit="Guardar" FormName="FormPostulante">
+                <DataAnnotationsValidator />
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold">Nombre Completo</label>
+                    <InputText class="form-control" @bind-Value="postulante.NombreCompleto" required placeholder="Ej: Juan Perez" />
+                </div>
+
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Teléfono / Celular</label>
+                        <InputText class="form-control" @bind-Value="postulante.Telefono" placeholder="Ej: 70012345" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Dirección</label>
+                        <InputText class="form-control" @bind-Value="postulante.Direccion" placeholder="Av. Principal #123" />
+                    </div>
+                </div>
+
+                <div class="row mb-4">
+                    <div class="col-md-8">
+                        <label class="form-label fw-bold">Condiciones de Vivienda</label>
+                        <InputTextArea class="form-control" @bind-Value="postulante.CondicionVivienda" rows="3" placeholder="Ej: Casa con patio cerrado, vive con niños, tiene otras mascotas..." />
+                        <div class="form-text">Describa el entorno donde vivirá la mascota.</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Busca Adoptar:</label>
+                        <InputSelect class="form-select" @bind-Value="postulante.PreferenciaMascota">
+                            <option value="">-- Seleccione --</option>
+                            <option value="Perro">Perro</option>
+                            <option value="Gato">Gato</option>
+                            <option value="Indiferente">Indiferente</option>
+                        </InputSelect>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <button type="button" class="btn btn-secondary" @onclick="Cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-warning text-dark fw-bold">
+                        <i class="bi bi-save me-2"></i>Guardar Datos
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [SupplyParameterFromForm] private Postulante postulante { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id.HasValue && postulante.IdPostulante == 0)
+        {
+            var encontrado = await DbContext.Postulantes.FindAsync(Id.Value);
+            if (encontrado != null) postulante = encontrado;
+        }
+    }
+
+    private async Task Guardar()
+    {
+        if (Id.HasValue && Id.Value > 0)
+        {
+            DbContext.Postulantes.Update(postulante);
+        }
+        else
+        {
+            DbContext.Postulantes.Add(postulante);
+        }
+
+        await DbContext.SaveChangesAsync();
+        Navigation.NavigateTo("/postulantes");
+    }
+
+    private void Cancelar() => Navigation.NavigateTo("/postulantes");
+}

@@ -1,0 +1,67 @@
+﻿@page "/historial-adopciones"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Veterinaria.Models
+@inject VeterinariaDbContext DbContext
+
+<div class="mb-4">
+    <h3 class="text-success fw-bold">
+        <i class="bi bi-journal-album me-2"></i>Historial de Adopciones
+    </h3>
+    <p class="text-muted">Registro de todas las mascotas que encontraron un hogar.</p>
+</div>
+
+@if (adopciones == null)
+{
+    <p>Cargando...</p>
+}
+else if (!adopciones.Any())
+{
+    <div class="alert alert-info">Aún no se han registrado adopciones.</div>
+}
+else
+{
+    <div class="card shadow-sm">
+        <table class="table table-hover mb-0">
+            <thead class="bg-success text-white">
+                <tr>
+                    <th>Fecha</th>
+                    <th>Mascota Adoptada</th>
+                    <th>Adoptante (Postulante)</th>
+                    <th>Aporte Compromiso</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in adopciones)
+                {
+                    <tr>
+                        <td>@a.FechaAdopcion?.ToString("dd/MM/yyyy")</td>
+                        <td class="fw-bold">
+                            <i class="bi bi-paw-fill me-2 text-warning"></i>
+                            @a.IdMascotaNavigation?.Nombre
+                        </td>
+                        <td>
+                            @a.IdPostulanteNavigation?.NombreCompleto
+                            <br />
+                            <small class="text-muted">@a.IdPostulanteNavigation?.Telefono</small>
+                        </td>
+                        <td class="text-success fw-bold">Bs. @(a.MontoCompromiso?.ToString("N2") ?? "0.00")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private List<Adopcion> adopciones;
+
+    protected override async Task OnInitializedAsync()
+    {
+        adopciones = await DbContext.Adopcions
+            .Include(a => a.IdMascotaNavigation)
+            .Include(a => a.IdPostulanteNavigation)
+            .OrderByDescending(a => a.FechaAdopcion)
+            .ToListAsync();
+    }
+}
