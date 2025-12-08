@@ -1,0 +1,182 @@
+﻿@page "/agregar-veterinario"
+@page "/agregar-veterinario/{Id:int}"
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Veterinaria.Models
+@inject VeterinariaDbContext DbContext
+@inject NavigationManager Navigation
+
+<div class="container" style="max-width: 800px;">
+    <div class="card shadow border-0">
+        <div class="card-header bg-info text-white py-3">
+            <h3 class="mb-0">
+                <i class="bi bi-person-badge-fill me-2"></i>
+                @(Id.HasValue ? "Editar Contrato" : "Contratar Veterinario")
+            </h3>
+        </div>
+        <div class="card-body p-4">
+            <EditForm Model="@modelo" OnValidSubmit="Guardar" FormName="FormVet">
+                <DataAnnotationsValidator />
+
+                <h5 class="text-secondary border-bottom pb-2 mb-3">Datos Personales</h5>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Cédula de Identidad (CI)</label>
+                        <InputText class="form-control" @bind-Value="modelo.Ci" required />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Teléfono</label>
+                        <InputText class="form-control" @bind-Value="modelo.Telefono" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Nombres</label>
+                        <InputText class="form-control" @bind-Value="modelo.Nombres" required />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Apellidos</label>
+                        <InputText class="form-control" @bind-Value="modelo.Apellidos" required />
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label">Dirección</label>
+                        <InputText class="form-control" @bind-Value="modelo.Direccion" />
+                    </div>
+                    <div class="col-md-12">
+                        <label class="form-label">Email</label>
+                        <InputText class="form-control" @bind-Value="modelo.Email" />
+                    </div>
+                </div>
+
+                <h5 class="text-secondary border-bottom pb-2 mb-3 mt-4">Datos Profesionales</h5>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">Código Profesional</label>
+                        <InputText class="form-control" @bind-Value="modelo.CodVeterinario" placeholder="VET-00X" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Especialidad</label>
+                        <InputText class="form-control" @bind-Value="modelo.Especialidad" placeholder="General, Cirugía..." />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Sueldo (Bs)</label>
+                        <InputNumber class="form-control" @bind-Value="modelo.Sueldo" />
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                    <button type="button" class="btn btn-secondary" @onclick="Cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-info text-white fw-bold">Guardar Contrato</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    // Usamos una clase auxiliar (ViewModel) para manejar todo en un solo form
+    private VeterinarioViewModel modelo = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id.HasValue)
+        {
+            var vet = await DbContext.Veterinarios
+                .Include(v => v.IdVeterinarioNavigation)
+                .FirstOrDefaultAsync(v => v.IdVeterinario == Id.Value);
+
+            if (vet != null)
+            {
+                // Mapeamos los datos de la BD al formulario
+                modelo = new VeterinarioViewModel
+                {
+                    Id = vet.IdVeterinario,
+                    Ci = vet.IdVeterinarioNavigation.Ci,
+                    Nombres = vet.IdVeterinarioNavigation.Nombres,
+                    Apellidos = vet.IdVeterinarioNavigation.Apellidos,
+                    Direccion = vet.IdVeterinarioNavigation.Direccion,
+                    Telefono = vet.IdVeterinarioNavigation.Telefono,
+                    Email = vet.IdVeterinarioNavigation.Email,
+                    CodVeterinario = vet.CodVeterinario,
+                    Especialidad = vet.Especialidad,
+                    Sueldo = vet.Sueldo
+                };
+            }
+        }
+    }
+
+    private async Task Guardar()
+    {
+        // Usamos una transacción para asegurar que se guarden ambos o ninguno
+        using var transaction = await DbContext.Database.BeginTransactionAsync();
+
+        try
+        {
+            Persona persona;
+            Veterinario vet;
+
+            if (Id.HasValue)
+            {
+                // MODO EDICIÓN
+                vet = await DbContext.Veterinarios.FindAsync(Id.Value);
+                persona = await DbContext.Personas.FindAsync(Id.Value); // ID es el mismo (relación 1 a 1)
+            }
+            else
+            {
+                // MODO CREACIÓN
+                persona = new Persona();
+                vet = new Veterinario();
+                DbContext.Personas.Add(persona);
+                // No agregamos 'vet' todavía, necesitamos el ID de persona primero
+            }
+
+            // Actualizamos datos de Persona
+            persona.Ci = modelo.Ci;
+            persona.Nombres = modelo.Nombres;
+            persona.Apellidos = modelo.Apellidos;
+            persona.Direccion = modelo.Direccion;
+            persona.Telefono = modelo.Telefono;
+            persona.Email = modelo.Email;
+
+            await DbContext.SaveChangesAsync(); // Guardamos persona para tener el ID
+
+            // Actualizamos datos de Veterinario
+            if (!Id.HasValue)
+            {
+                vet.IdVeterinario = persona.IdPersona; // VINCULACIÓN CLAVE
+                DbContext.Veterinarios.Add(vet);
+            }
+
+            vet.CodVeterinario = modelo.CodVeterinario;
+            vet.Especialidad = modelo.Especialidad;
+            vet.Sueldo = modelo.Sueldo;
+
+            await DbContext.SaveChangesAsync();
+            await transaction.CommitAsync(); // Confirmamos todo
+
+            Navigation.NavigateTo("/veterinarios");
+        }
+        catch (Exception)
+        {
+            await transaction.RollbackAsync();
+            // Manejar error
+        }
+    }
+
+    private void Cancelar() => Navigation.NavigateTo("/veterinarios");
+
+    // Clase auxiliar para el formulario
+    public class VeterinarioViewModel
+    {
+        public int Id { get; set; }
+        public string? Ci { get; set; }
+        public string? Nombres { get; set; }
+        public string? Apellidos { get; set; }
+        public string? Direccion { get; set; }
+        public string? Telefono { get; set; }
+        public string? Email { get; set; }
+        public string? CodVeterinario { get; set; }
+        public string? Especialidad { get; set; }
+        public decimal? Sueldo { get; set; }
+    }
+}
