@@ -18,10 +18,8 @@ public partial class Postulante
     [Column("direccion")]
     public string? Direccion { get; set; }
 
-    // --- ESTE ES EL NUEVO CAMPO ---
     [Column("telefono")]
     public string? Telefono { get; set; }
-    // ------------------------------
 
     [Column("condicion_vivienda")]
     public string? CondicionVivienda { get; set; }
@@ -29,5 +27,7 @@ public partial class Postulante
     [Column("preferencia_mascota")]
     public string? PreferenciaMascota { get; set; }
 
+    // --- ESTA ES LA LÍNEA CLAVE QUE ASEGURA LA RELACIÓN ---
+    [InverseProperty("IdPostulanteNavigation")]
     public virtual ICollection<Adopcion> Adopcions { get; set; } = new List<Adopcion>();
 }

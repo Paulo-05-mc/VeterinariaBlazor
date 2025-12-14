@@ -82,10 +82,9 @@ else
     {
         lista = await DbContext.Postulantes.OrderBy(p => p.NombreCompleto).ToListAsync();
 
-        // Obtener lista de IDs de personas que ya tienen registro en Adopciones
         idsPostulantesConAdopcion = await DbContext.Adopcions
-            .Where(a => a.IdPostulante != null) // 1. Filtramos los que no sean nulos
-            .Select(a => a.IdPostulante.Value)  // 2. Extraemos el valor seguro (.Value)
+            .Where(a => a.IdPostulante != null)
+            .Select(a => a.IdPostulante.Value)
             .ToListAsync();
     }
 

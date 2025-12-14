@@ -62,9 +62,10 @@ else
                         <td>
                             @if (m.IdClienteNavigation != null)
                             {
-                                <i class="bi bi-person-check-fill text-primary"></i> 
+                                <i class="bi bi-person-check-fill text-primary"></i>
                                 @m.IdClienteNavigation.NombreFamilia
                             }
+                            @* CORRECCIÓN: Usamos .GetValueOrDefault() o ?? 0 para convertir el nulo en 0 *@
                             else if (idsMascotasAdoptadas.ContainsKey(m.IdMascota))
                             {
                                 <span class="badge bg-success">
